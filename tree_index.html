@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Project Index</title>
+    <!-- jsTree CSS and JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jstree@3.3.15/dist/themes/default/style.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jstree@3.3.15/dist/jstree.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2em;
+        }
+        
+        #tree {
+            margin-top: 1em;
+        }
+        
+        .controls {
+            margin-bottom: 1em;
+        }
+        
+        .controls button,
+        .controls input[type="file"] {
+            margin-right: 1em;
+        }
+        
+        .jstree-anchor {
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <a href="project_manager.html" style="float:right; margin: 1em; font-size: 1em;">Back to Project Manager</a>
+    <h1>Interactive Documentation Index</h1>
+    <div class="controls">
+        <button id="add-folder">Add Folder</button>
+        <button id="add-file">Add File</button>
+        <button id="save-index">Save Index</button>
+        <input type="file" id="load-index" accept="application/json" style="display:none;" />
+        <button id="load-index-btn">Load Index</button>
+        <span style="margin-left:2em;">Drag files onto the tree to add them!</span>
+    </div>
+    <div id="tree"></div>
+    <script>
+        // Initial tree data (mimics your index.html structure)
+        let treeData = [{
+            "id": "snippets",
+            "parent": "#",
+            "text": "Snippets",
+            "type": "folder"
+        }, {
+            "id": "projects",
+            "parent": "#",
+            "text": "Projects",
+            "type": "folder"
+        }, {
+            "id": "general",
+            "parent": "#",
+            "text": "General",
+            "type": "folder"
+        }, {
+            "id": "old",
+            "parent": "#",
+            "text": "Old",
+            "type": "folder"
+        }, {
+            "id": "chatgpt",
+            "parent": "#",
+            "text": "ChatGPT queries",
+            "type": "folder"
+        }];
+        // Helper: generate unique IDs
+        function uuidv4() {
+            return 'xxxxxxxx'.replace(/[xy]/g, function(c) {
+                let r = Math.random() * 16 | 0;
+                return r.toString(16);
+            });
+        }
+        // Initialize jsTree
+        function initTree(data) {
+            $('#tree').jstree('destroy');
+            $('#tree').jstree({
+                'core': {
+                    'data': data,
+                    'check_callback': true
+                },
+                'types': {
+                    'folder': {
+                        'icon': 'jstree-folder'
+                    },
+                    'file': {
+                        'icon': 'jstree-file'
+                    }
+                },
+                'plugins': ['types', 'dnd', 'unique']
+            });
+        }
+        $(function() {
+            // Load from localStorage if exists
+            let saved = localStorage.getItem('treeIndexData');
+            if (saved) treeData = JSON.parse(saved);
+            initTree(treeData);
+            // Add Folder
+            $('#add-folder').click(function() {
+                let sel = $('#tree').jstree('get_selected')[0] || '#';
+                let name = prompt('Folder name?');
+                if (!name) return;
+                let id = uuidv4();
+                $('#tree').jstree('create_node', sel, {
+                    id,
+                    text: name,
+                    type: 'folder'
+                }, 'last');
+            });
+            // Add File
+            $('#add-file').click(function() {
+                let sel = $('#tree').jstree('get_selected')[0] || '#';
+                let name = prompt('Display name for file?');
+                if (!name) return;
+                let path = prompt('File path or URL?');
+                if (!path) return;
+                let id = uuidv4();
+                $('#tree').jstree('create_node', sel, {
+                    id,
+                    text: name,
+                    type: 'file',
+                    a_attr: {
+                        href: path,
+                        target: '_blank'
+                    }
+                }, 'last');
+            });
+            // --- Drag-and-drop file from OS ---
+            // Prevent default browser behavior for dropping files on #tree
+            $('#tree').on('dragover dragenter', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).addClass('dragover');
+            });
+            $('#tree').on('dragleave dragend drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $(this).removeClass('dragover');
+            });
+            $('#tree').on('drop', function(e) {
+                let dt = e.originalEvent.dataTransfer;
+                if (dt && dt.files && dt.files.length > 0) {
+                    let sel = $('#tree').jstree('get_selected')[0] || '#';
+                    // Add all dropped files
+                    for (let i = 0; i < dt.files.length; i++) {
+                        let file = dt.files[i];
+                        let name = prompt('Display name for file?', file.name);
+                        if (!name) continue;
+                        let id = uuidv4();
+                        // Only file.name is available, not full path
+                        $('#tree').jstree('create_node', sel, {
+                            id,
+                            text: name,
+                            type: 'file',
+                            a_attr: {
+                                href: file.name,
+                                target: '_blank'
+                            }
+                        }, 'last');
+                    }
+                }
+            });
+            // Make links clickable
+            $('#tree').on('select_node.jstree', function(e, data) {
+                let node = data.node;
+                if (node.type === 'file' && node.a_attr && node.a_attr.href) {
+                    window.open(node.a_attr.href, '_blank');
+                }
+            });
+            // Save index
+            $('#save-index').click(function() {
+                let data = $('#tree').jstree(true).get_json('#', {
+                    flat: true
+                });
+                localStorage.setItem('treeIndexData', JSON.stringify(data));
+                let blob = new Blob([JSON.stringify(data, null, 2)], {
+                    type: 'application/json'
+                });
+                let url = URL.createObjectURL(blob);
+                let a = document.createElement('a');
+                a.href = url;
+                a.download = 'tree_index.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            // Load index
+            $('#load-index-btn').click(function() {
+                $('#load-index').click();
+            });
+            $('#load-index').change(function(e) {
+                let file = e.target.files[0];
+                if (!file) return;
+                let reader = new FileReader();
+                reader.onload = function(ev) {
+                    let data = JSON.parse(ev.target.result);
+                    treeData = data;
+                    localStorage.setItem('treeIndexData', JSON.stringify(data));
+                    initTree(treeData);
+                };
+                reader.readAsText(file);
+            });
+        });
+    </script>
+</body>
+
+</html>

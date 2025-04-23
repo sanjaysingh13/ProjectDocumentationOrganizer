@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Documentation Organizer</title>
+    <!-- Optional external resources - app will work without these -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+         :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #34495e;
+            --accent-color: #3498db;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --text-color: #333;
+            --light-text: #ecf0f1;
+            --bg-color: #f9f9f9;
+            --card-bg: #fff;
+            --border-color: #ddd;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        
+        header {
+            background-color: var(--primary-color);
+            color: var(--light-text);
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: var(--card-bg);
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            padding: 1rem;
+        }
+        
+        .main-content {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        
+        .editor-container {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            height: calc(100% - 110px);
+            /* Adjust height to account for controls */
+            position: relative;
+        }
+        
+        #editor {
+            width: 100%;
+            height: 100%;
+            padding: 1rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            border: none;
+            resize: none;
+            outline: none;
+        }
+        
+        .tree-view {
+            margin-top: 1rem;
+        }
+        
+        .tree-item {
+            margin-bottom: 0.25rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .tree-folder {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .tree-file {
+            padding-left: 1.5rem;
+            color: var(--secondary-color);
+        }
+        
+        .tree-file.active {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+        
+        .tree-content {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease;
+        }
+        
+        .tree-content.open {
+            max-height: 1000px;
+        }
+        
+        .folder-icon::before {
+            content: "▶";
+            display: inline-block;
+            margin-right: 0.5rem;
+            font-size: 0.8rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .folder-icon.open::before {
+            transform: rotate(90deg);
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 0.25rem 0;
+        }
+        
+        .file-item:hover {
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        
+        .button-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button.danger {
+            background-color: var(--danger-color);
+        }
+        
+        button.danger:hover {
+            background-color: #c0392b;
+        }
+        
+        button.success {
+            background-color: var(--success-color);
+        }
+        
+        button.success:hover {
+            background-color: #27ae60;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .dialog {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            width: 400px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .dialog h3 {
+            margin-top: 0;
+        }
+        
+        .dialog input {
+            width: 100%;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        
+        .dialog-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+        
+        .breadcrumb {
+            margin-bottom: 1rem;
+            color: var(--secondary-color);
+        }
+        
+        .breadcrumb span {
+            cursor: pointer;
+        }
+        
+        .breadcrumb span:hover {
+            text-decoration: underline;
+        }
+        
+        #status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 4px;
+            display: none;
+            z-index: 1000;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        /* Add styles for preview mode */
+        
+        .preview-container {
+            display: none;
+            padding: 1rem;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow-y: auto;
+            z-index: 10;
+        }
+        
+        .preview-container.active {
+            display: block;
+        }
+        /* Style for code blocks in preview */
+        
+        .preview-container pre {
+            background: #f5f5f5;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        /* Add styles for template selector */
+        
+        .editor-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+        
+        .template-selector {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        
+        .view-toggle {
+            white-space: nowrap;
+            padding: 0.5rem 1rem;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .view-toggle:hover {
+            background-color: #2980b9;
+        }
+        
+        .CodeMirror {
+            height: calc(100% - 50px);
+            font-size: 14px;
+        }
+        /* Add toolbar styles */
+        
+        .editor-toolbar {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px 4px 0 0;
+            margin-bottom: -1px;
+        }
+        
+        .toolbar-button {
+            padding: 0.25rem 0.5rem;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .toolbar-button:hover {
+            background: #2980b9;
+        }
+        
+        .code-language-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 1rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        
+        .code-language-dialog select {
+            width: 100%;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+        }
+        /* Instructions Modal Styles */
+        
+        .instructions-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .instructions-content {
+            background: white;
+            margin: 2rem auto;
+            padding: 2rem;
+            max-width: 800px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .instructions-content h2 {
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+        }
+        
+        .instructions-content h3 {
+            color: var(--secondary-color);
+            margin: 1.5rem 0 1rem;
+        }
+        
+        .instructions-section {
+            margin-bottom: 2rem;
+        }
+        
+        .instructions-list {
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .instructions-list li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .close-instructions {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+        
+        .instruction-image {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin: 1rem 0;
+            max-width: 100%;
+        }
+        
+        .tip-box {
+            background: #f0f7ff;
+            border-left: 4px solid var(--accent-color);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .keyboard-shortcut {
+            background: #f5f5f5;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        /* Add instructions button to header */
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+        }
+        
+        .header-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .help-button {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .help-button:hover {
+            background: #2980b9;
+        }
+        /* Offline mode indicator styles */
+        
+        .offline-indicator {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            background: #2ecc71;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            display: none;
+            z-index: 1000;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .offline-indicator.offline {
+            background: #e74c3c;
+        }
+        /* Basic editor styles (fallback when CodeMirror is not available) */
+        
+        .basic-editor {
+            width: 100%;
+            height: calc(100% - 50px);
+            font-family: monospace;
+            font-size: 14px;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            resize: none;
+            display: none;
+        }
+        
+        .basic-editor.active {
+            display: block;
+        }
+        /* Add a notice about offline usage */
+        
+        .offline-notice {
+            background: #f7f9fc;
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .offline-notice.show {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Project Documentation Organizer</h1>
+        <div class="header-buttons">
+            <a href="tree_index.html" target="_blank" class="view-toggle" style="margin-left:1em;">Index</a>
+            <button class="help-button" onclick="showInstructions()">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 0C3.6 0 0 3.6 0 8C0 12.4 3.6 16 8 16C12.4 16 16 12.4 16 8C16 3.6 12.4 0 8 0ZM8.8 13.6H7.2V12H8.8V13.6ZM10.28 7.76L9.48 8.56C8.8 9.24 8.8 9.84 8.8 10H7.2V9.6C7.2 8.96 7.2 8.16 7.88 7.48L9 6.36C9.32 6.04 9.6 5.52 9.6 5.2C9.6 4.4 8.8 3.6 8 3.6C7.2 3.6 6.4 4.4 6.4 5.2H4.8C4.8 3.6 6.4 2 8 2C9.6 2 11.2 3.6 11.2 5.2C11.2 6.24 10.68 7.12 10.28 7.76Z" fill="white"/>
+                </svg>
+                Instructions
+            </button>
+        </div>
+    </header>
+
+    <!-- Add offline indicator -->
+    <div id="offlineIndicator" class="offline-indicator">
+        <span id="connectionStatus">✓ Ready for offline use</span>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <!-- Add offline notice -->
+            <div id="offlineNotice" class="offline-notice">
+                <strong>💻 Offline Mode Available</strong>
+                <p>This app works offline! You can:
+                    <ul>
+                        <li>Create and edit files</li>
+                        <li>Organize folders</li>
+                        <li>Save changes locally</li>
+                    </ul>
+                    <small>Note: Some features like syntax highlighting may be limited offline.</small>
+                </p>
+            </div>
+            <div class="button-container">
+                <button id="loadProjectBtn">Load Project</button>
+                <button id="createFolderBtn">New Folder</button>
+                <button id="createFileBtn">New File</button>
+            </div>
+
+            <div class="tree-view" id="projectTree">
+                <div class="tree-item">
+                    <p>Load or create a project to get started.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="breadcrumb" id="breadcrumb">
+                <!-- Breadcrumb navigation will be generated here -->
+            </div>
+
+            <!-- Move these controls outside editor container -->
+            <div class="editor-controls">
+                <select id="templateSelector" class="template-selector">
+                    <option value="">Select a template...</option>
+                    <option value="django">Django Project Setup</option>
+                    <option value="conda">Conda Environment Setup</option>
+                    <option value="snippet">Code Snippet</option>
+                    <option value="guide">Task Guide</option>
+                </select>
+                <button id="toggleViewBtn" class="view-toggle">Show Preview</button>
+            </div>
+
+            <div class="editor-container hidden" id="editorContainer">
+                <!-- Add toolbar -->
+                <div class="editor-toolbar">
+                    <button class="toolbar-button" id="insertCodeBtn">Insert Code Block</button>
+                    <select id="fileTypeSelect" class="toolbar-button">
+                        <option value="txt">Plain Text (.txt)</option>
+                        <option value="html">HTML (.html)</option>
+                        <option value="md">Markdown (.md)</option>
+                        <option value="rtf">Rich Text (.rtf)</option>
+                    </select>
+                </div>
+
+                <!-- Replace textarea with CodeMirror container -->
+                <div id="editor"></div>
+                <div id="preview" class="preview-container"></div>
+
+                <!-- Add basic editor as fallback -->
+                <textarea id="basicEditor" class="basic-editor"></textarea>
+
+                <div class="actions">
+                    <button id="saveBtn" class="success">Save</button>
+                    <button id="closeBtn">Close</button>
+                </div>
+            </div>
+
+            <div id="welcomeScreen">
+                <h2>Welcome to Project Documentation Organizer</h2>
+                <p>This app helps you organize project documentation, code snippets, and workflow guides directly in your browser.</p>
+                <p>Get started by:</p>
+                <ol>
+                    <li>Loading an existing project folder</li>
+                    <li>Creating new folders to organize your content</li>
+                    <li>Creating new files for documentation</li>
+                </ol>
+                <p>All your files will be saved locally on your device.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dialog for creating new files/folders -->
+    <div class="dialog-overlay hidden" id="createDialog">
+        <div class="dialog">
+            <h3 id="dialogTitle">Create New Item</h3>
+            <input type="text" id="itemNameInput" placeholder="Enter name">
+            <div class="dialog-buttons">
+                <button id="cancelDialogBtn">Cancel</button>
+                <button id="confirmDialogBtn" class="success">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add code language dialog -->
+    <div id="codeLangDialog" class="code-language-dialog hidden">
+        <h3>Insert Code Block</h3>
+        <select id="codeLangSelect">
+            <option value="python">Python</option>
+            <option value="javascript">JavaScript</option>
+            <option value="typescript">TypeScript</option>
+            <option value="html">HTML</option>
+            <option value="css">CSS</option>
+            <option value="bash">Bash</option>
+            <option value="sql">SQL</option>
+        </select>
+        <div class="dialog-buttons">
+            <button id="cancelCodeBtn">Cancel</button>
+            <button id="insertCodeConfirmBtn" class="success">Insert</button>
+        </div>
+    </div>
+
+    <!-- Instructions Modal -->
+    <div class="instructions-modal" id="instructionsModal">
+        <div class="instructions-content">
+            <button class="close-instructions" onclick="hideInstructions()">&times;</button>
+            <h2>📚 How to Use the Project Documentation Organizer</h2>
+
+            <div class="instructions-section">
+                <h3>🚀 Getting Started</h3>
+                <ol class="instructions-list">
+                    <li>Click the <strong>"Load Project"</strong> button to select a folder on your computer where you want to store your documentation.</li>
+                    <li>Once loaded, you'll see your project folder structure on the left side.</li>
+                </ol>
+                <div class="tip-box">
+                    <strong>Tip:</strong> Create a new folder specifically for your documentation to keep things organized!
+                </div>
+            </div>
+
+            <div class="instructions-section">
+                <h3>📁 Creating Files and Folders</h3>
+                <ol class="instructions-list">
+                    <li>Use the <strong>"New Folder"</strong> button to create folders for organizing your documentation</li>
+                    <li>Click <strong>"New File"</strong> to create a new document</li>
+                    <li>Choose a file type from the dropdown:
+                        <ul>
+                            <li><strong>Markdown (.md)</strong> - Best for documentation with code examples</li>
+                            <li><strong>HTML (.html)</strong> - For web pages</li>
+                            <li><strong>Text (.txt)</strong> - Simple text files</li>
+                            <li><strong>Rich Text (.rtf)</strong> - Formatted text documents</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="instructions-section">
+                <h3>📝 Writing Documentation</h3>
+                <ol class="instructions-list">
+                    <li><strong>Adding Code Examples:</strong>
+                        <ul>
+                            <li>Click the <strong>"Insert Code Block"</strong> button in the toolbar</li>
+                            <li>Select the programming language</li>
+                            <li>Type or paste your code between the markers</li>
+                        </ul>
+                    </li>
+                    <li><strong>Using Templates:</strong>
+                        <ul>
+                            <li>Select a template from the dropdown for common setups:
+                                <ul>
+                                    <li>Django Project Setup</li>
+                                    <li>Conda Environment Setup</li>
+                                    <li>Code Snippet</li>
+                                    <li>Task Guide</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ol>
+                <div class="tip-box">
+                    <strong>Pro Tip:</strong> Use Markdown (.md) files for the best documentation experience. They support formatted text and code blocks!
+                </div>
+            </div>
+
+            <div class="instructions-section">
+                <h3>💾 Saving Your Work</h3>
+                <ul class="instructions-list">
+                    <li>Click the <strong>"Save"</strong> button or use <span class="keyboard-shortcut">Ctrl + S</span> (or <span class="keyboard-shortcut">⌘ + S</span> on Mac) to save your changes</li>
+                    <li>Your files are saved directly to your computer in the folder you selected</li>
+                </ul>
+            </div>
+
+            <div class="instructions-section">
+                <h3>👀 Previewing Your Work</h3>
+                <ul class="instructions-list">
+                    <li>Click <strong>"Toggle Preview"</strong> to see how your documentation will look</li>
+                    <li>This is especially useful for Markdown files to see the formatted text and code blocks</li>
+                </ul>
+            </div>
+
+            <div class="instructions-section">
+                <h3>📋 Best Practices</h3>
+                <ul class="instructions-list">
+                    <li>Create separate folders for different projects or topics</li>
+                    <li>Use meaningful file names that describe the content</li>
+                    <li>For code snippets, always include:
+                        <ul>
+                            <li>A description of what the code does</li>
+                            <li>Any prerequisites or dependencies</li>
+                            <li>Example usage</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="instructions-section">
+                <h3>⌨️ Keyboard Shortcuts</h3>
+                <ul class="instructions-list">
+                    <li><span class="keyboard-shortcut">Ctrl + S</span> or <span class="keyboard-shortcut">⌘ + S</span> - Save current file</li>
+                    <li><span class="keyboard-shortcut">Tab</span> - Indent text</li>
+                    <li><span class="keyboard-shortcut">Shift + Tab</span> - Unindent text</li>
+                </ul>
+            </div>
+
+            <div class="instructions-section">
+                <h3>🌳 Using the Index (Tree View)</h3>
+                <ol class="instructions-list">
+                    <li>Click the <strong>"Index"</strong> button in the header to open the interactive project index in a new tab.</li>
+                    <li>Use the tree view to browse, search, and organize your documentation and code snippets.</li>
+                    <li><strong>To add a folder or file:</strong>
+                        <ul>
+                            <li>Right-click or use the "Add Folder"/"Add File" buttons to add new items.</li>
+                            <li>When adding a file, you will be prompted for a display name and file path or URL.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Drag and drop files</strong> from your computer onto the tree to quickly add them. You will be prompted for a display name.</li>
+                    <li>Click any file in the tree to open it (if the file is accessible via hyperlink or URL).</li>
+                    <li>Use the <strong>"Save Index"</strong> button to download the current tree structure as a JSON file for backup or sharing.</li>
+                    <li>Use the <strong>"Load Index"</strong> button to restore a previously saved tree structure.</li>
+                    <li>Click "Back to Project Manager" in the index page to return here.</li>
+                </ol>
+                <div class="tip-box">
+                    <strong>Tip:</strong> Use the index to quickly find and jump to any documentation or snippet in your project!
+                </div>
+            </div>
+
+            <div class="tip-box">
+                <strong>Need Help?</strong> You can always come back to these instructions by clicking the "Instructions" button in the top-right corner!
+            </div>
+        </div>
+    </div>
+
+    <div id="status">Status message</div>
+
+    <script>
+        // Global state
+        const state = {
+            projectHandle: null,
+            currentDirectory: null,
+            directoryStack: [],
+            activeFile: null,
+            fileHandles: new Map(),
+            lastProjectPermission: null
+        };
+
+        // DOM Elements
+        const projectTree = document.getElementById('projectTree');
+        const editorContainer = document.getElementById('editorContainer');
+        const editor = document.getElementById('editor');
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const breadcrumb = document.getElementById('breadcrumb');
+        const createDialog = document.getElementById('createDialog');
+        const itemNameInput = document.getElementById('itemNameInput');
+        const dialogTitle = document.getElementById('dialogTitle');
+        const statusElement = document.getElementById('status');
+
+        // Buttons
+        const loadProjectBtn = document.getElementById('loadProjectBtn');
+        const createFolderBtn = document.getElementById('createFolderBtn');
+        const createFileBtn = document.getElementById('createFileBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const closeBtn = document.getElementById('closeBtn');
+        const cancelDialogBtn = document.getElementById('cancelDialogBtn');
+        const confirmDialogBtn = document.getElementById('confirmDialogBtn');
+
+        // Debug function
+        function showStatus(message) {
+            statusElement.textContent = message;
+            statusElement.style.display = 'block';
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 3000);
+        }
+
+        // Check if the File System Access API is supported
+        if (!('showDirectoryPicker' in window)) {
+            alert('Your browser does not support the File System Access API. Please use Chrome, Edge, or Opera.');
+        }
+
+        // Event Listeners
+        loadProjectBtn.addEventListener('click', async() => {
+            try {
+                let suggestedName = null;
+                const serializedHandle = localStorage.getItem('lastProjectHandle');
+                if (serializedHandle) {
+                    try {
+                        const handleData = JSON.parse(serializedHandle);
+                        suggestedName = handleData.name;
+                    } catch (e) {}
+                }
+                let pickerOpts = {
+                    mode: 'readwrite'
+                };
+                if (suggestedName) pickerOpts.suggestedName = suggestedName;
+                const dirHandle = await window.showDirectoryPicker(pickerOpts);
+
+                state.projectHandle = dirHandle;
+                state.currentDirectory = dirHandle;
+                state.directoryStack = [{
+                    handle: dirHandle,
+                    name: dirHandle.name
+                }];
+
+                showStatus("Loading project...");
+                await renderDirectoryContents(dirHandle);
+                updateBreadcrumb();
+
+                // Save the project permission
+                await saveProjectPermission(dirHandle);
+
+                welcomeScreen.classList.add('hidden');
+                showStatus("Project loaded successfully!");
+            } catch (error) {
+                console.error('Error loading project:', error);
+                showStatus("Error loading project: " + error.message);
+            }
+        });
+
+        createFolderBtn.addEventListener('click', () => {
+            if (!state.currentDirectory) {
+                alert('Please load a project first.');
+                return;
+            }
+
+            showStatus("Opening create folder dialog");
+            openCreateDialog('folder');
+        });
+
+        createFileBtn.addEventListener('click', () => {
+            if (!state.currentDirectory) {
+                alert('Please load a project first.');
+                return;
+            }
+
+            showStatus("Opening create file dialog");
+            openCreateDialog('file');
+        });
+
+        saveBtn.addEventListener('click', async() => {
+            if (state.activeFile) {
+                await saveFile(state.activeFile);
+            }
+        });
+
+        closeBtn.addEventListener('click', () => {
+            editorContainer.classList.add('hidden');
+            welcomeScreen.classList.remove('hidden');
+            state.activeFile = null;
+        });
+
+        cancelDialogBtn.addEventListener('click', () => {
+            createDialog.classList.add('hidden');
+        });
+
+        confirmDialogBtn.addEventListener('click', async() => {
+            const name = itemNameInput.value.trim();
+            if (!name) {
+                alert('Please enter a valid name.');
+                return;
+            }
+
+            const type = confirmDialogBtn.dataset.type;
+            showStatus(`Creating ${type}: ${name}`);
+
+            if (type === 'folder') {
+                await createFolder(name);
+            } else if (type === 'file') {
+                await createFile(name);
+            }
+
+            createDialog.classList.add('hidden');
+        });
+
+        // Functions
+        async function renderDirectoryContents(dirHandle) {
+            try {
+                projectTree.innerHTML = '';
+
+                // Sort entries into folders and files
+                const entries = [];
+                for await (const entry of dirHandle.values()) {
+                    entries.push({
+                        name: entry.name,
+                        type: entry.kind,
+                        handle: entry
+                    });
+                }
+
+                // Sort folders first, then files, both alphabetically
+                entries.sort((a, b) => {
+                    if (a.type === b.type) {
+                        return a.name.localeCompare(b.name);
+                    }
+                    return a.type === 'directory' ? -1 : 1;
+                });
+
+                for (const entry of entries) {
+                    if (entry.type === 'directory') {
+                        const folderItem = createFolderItem(entry.name, entry.handle);
+                        projectTree.appendChild(folderItem);
+                    } else {
+                        const fileItem = createFileItem(entry.name, entry.handle);
+                        projectTree.appendChild(fileItem);
+                    }
+                }
+            } catch (error) {
+                console.error('Error rendering directory:', error);
+                showStatus('Error rendering directory: ' + error.message);
+            }
+        }
+
+        function createFolderItem(name, handle) {
+            const item = document.createElement('div');
+            item.className = 'tree-item';
+
+            const folderHeader = document.createElement('div');
+            folderHeader.className = 'tree-folder';
+            folderHeader.innerHTML = `<span class="folder-icon"></span>${name}`;
+
+            const folderContent = document.createElement('div');
+            folderContent.className = 'tree-content';
+
+            item.appendChild(folderHeader);
+            item.appendChild(folderContent);
+
+            folderHeader.addEventListener('click', async() => {
+                const icon = folderHeader.querySelector('.folder-icon');
+                icon.classList.toggle('open');
+                folderContent.classList.toggle('open');
+
+                if (folderContent.classList.contains('open') && folderContent.children.length === 0) {
+                    const subEntries = [];
+                    for await (const entry of handle.values()) {
+                        subEntries.push({
+                            name: entry.name,
+                            type: entry.kind,
+                            handle: entry
+                        });
+                    }
+
+                    subEntries.sort((a, b) => {
+                        if (a.type === b.type) {
+                            return a.name.localeCompare(b.name);
+                        }
+                        return a.type === 'directory' ? -1 : 1;
+                    });
+
+                    for (const entry of subEntries) {
+                        if (entry.type === 'directory') {
+                            const subFolderItem = createFolderItem(entry.name, entry.handle);
+                            folderContent.appendChild(subFolderItem);
+                        } else {
+                            const subFileItem = createFileItem(entry.name, entry.handle);
+                            folderContent.appendChild(subFileItem);
+                        }
+                    }
+                }
+            });
+
+            // Double click to navigate into the folder
+            folderHeader.addEventListener('dblclick', async() => {
+                state.currentDirectory = handle;
+                state.directoryStack.push({
+                    handle,
+                    name
+                });
+                await renderDirectoryContents(handle);
+                updateBreadcrumb();
+            });
+
+            return item;
+        }
+
+        function createFileItem(name, handle) {
+            const item = document.createElement('div');
+            item.className = 'tree-file file-item';
+            item.textContent = name;
+
+            item.addEventListener('click', async() => {
+                try {
+                    showStatus(`Opening file: ${name}`);
+                    await readFile(handle);
+                    editorContainer.classList.remove('hidden');
+                    welcomeScreen.classList.add('hidden');
+                    state.activeFile = handle;
+
+                    // Remove active class from all files
+                    document.querySelectorAll('.tree-file').forEach(file => {
+                        file.classList.remove('active');
+                    });
+
+                    // Add active class to clicked file
+                    item.classList.add('active');
+                } catch (error) {
+                    console.error('Error opening file:', error);
+                    showStatus('Error opening file: ' + error.message);
+                    alert('Error opening file: ' + error.message);
+                }
+            });
+
+            return item;
+        }
+
+        // Add CodeMirror instance
+        let codeMirror;
+        let isPreviewMode = false;
+
+        // Template definitions
+        const templates = {
+            django: `# Django Project Setup Guide
+
+## Prerequisites
+- Python 3.x installed
+- pip package manager
+
+## Steps
+
+1. Create and activate virtual environment:
+\`\`\`bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\\Scripts\\activate
+\`\`\`
+
+2. Install Django:
+\`\`\`bash
+pip install django
+\`\`\`
+
+3. Create new project:
+\`\`\`bash
+django-admin startproject myproject
+cd myproject
+\`\`\`
+
+4. Create new app:
+\`\`\`bash
+python manage.py startapp myapp
+\`\`\`
+
+5. Run development server:
+\`\`\`bash
+python manage.py runserver
+\`\`\`
+`,
+            conda: `# Conda Environment Setup
+
+## Create and Activate Environment
+\`\`\`bash
+conda create --name myenv python=3.9
+conda activate myenv
+\`\`\`
+
+## Common Commands
+- List environments: \`conda env list\`
+- Install package: \`conda install package_name\`
+- Export environment: \`conda env export > environment.yml\`
+- Create from yml: \`conda env create -f environment.yml\`
+`,
+            snippet: `# Code Snippet
+
+## Description
+[Add description here]
+
+## Code
+\`\`\`python
+# Your code here
+\`\`\`
+
+## Usage Example
+\`\`\`python
+# Usage example here
+\`\`\`
+`,
+            guide: `# Task Guide
+
+## Overview
+[Add task overview]
+
+## Prerequisites
+- [List prerequisites]
+
+## Steps
+1. [First step]
+2. [Second step]
+3. [Third step]
+
+## Common Issues
+- [List common issues and solutions]
+
+## References
+- [Add relevant links]
+`
+        };
+
+        // Initialize CodeMirror after DOM loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const editorContainer = document.getElementById('editor');
+            const basicEditor = document.getElementById('basicEditor');
+
+            if (typeof CodeMirror !== 'undefined') {
+                // Initialize CodeMirror if available
+                codeMirror = CodeMirror(editorContainer, {
+                    mode: 'markdown',
+                    theme: 'monokai',
+                    lineNumbers: true,
+                    lineWrapping: true,
+                    autofocus: true,
+                    indentUnit: 4,
+                    tabSize: 4,
+                    viewportMargin: Infinity
+                });
+                basicEditor.style.display = 'none';
+                hasCodeMirror = true;
+            } else {
+                // Use basic editor if CodeMirror is not available
+                editorContainer.style.display = 'none';
+                basicEditor.classList.add('active');
+                hasCodeMirror = false;
+            }
+        });
+
+        // Add template selector handler
+        document.getElementById('templateSelector').addEventListener('change', (e) => {
+            const template = templates[e.target.value];
+            if (template) {
+                codeMirror.setValue(template);
+                e.target.value = ''; // Reset selector
+            }
+        });
+
+        // Add preview toggle handler
+        document.getElementById('toggleViewBtn').addEventListener('click', () => {
+            if (!hasMarked) {
+                alert('Preview is not available in offline mode. Please connect to the internet to use this feature.');
+                return;
+            }
+            isPreviewMode = !isPreviewMode;
+            const previewContainer = document.getElementById('preview');
+            const toggleBtn = document.getElementById('toggleViewBtn');
+
+            if (isPreviewMode) {
+                const content = codeMirror.getValue();
+                previewContainer.innerHTML = marked.parse(content);
+                previewContainer.classList.add('active');
+                codeMirror.getWrapperElement().style.display = 'none';
+                toggleBtn.textContent = 'Show Editor';
+            } else {
+                previewContainer.classList.remove('active');
+                codeMirror.getWrapperElement().style.display = 'block';
+                toggleBtn.textContent = 'Show Preview';
+            }
+        });
+
+        // Add new global variables
+        let currentFileType = 'txt';
+
+        // Handle code block insertion
+        document.getElementById('insertCodeBtn').addEventListener('click', () => {
+            document.getElementById('codeLangDialog').classList.remove('hidden');
+        });
+
+        document.getElementById('cancelCodeBtn').addEventListener('click', () => {
+            document.getElementById('codeLangDialog').classList.add('hidden');
+        });
+
+        document.getElementById('insertCodeConfirmBtn').addEventListener('click', () => {
+            const language = document.getElementById('codeLangSelect').value;
+            const cursor = codeMirror.getCursor();
+
+            let codeBlockTemplate = '';
+            if (currentFileType === 'md' || currentFileType === 'txt') {
+                codeBlockTemplate = `\n\`\`\`${language}\n\n\`\`\`\n`;
+            } else if (currentFileType === 'html') {
+                codeBlockTemplate = `\n<pre><code class="language-${language}">\n\n</code></pre>\n`;
+            } else if (currentFileType === 'rtf') {
+                codeBlockTemplate = `\n--- ${language} Code Start ---\n\n--- ${language} Code End ---\n`;
+            }
+
+            codeMirror.replaceRange(codeBlockTemplate, cursor);
+            codeMirror.setCursor(cursor.line + 2, 0);
+            document.getElementById('codeLangDialog').classList.add('hidden');
+        });
+
+        // Handle file type changes
+        document.getElementById('fileTypeSelect').addEventListener('change', (e) => {
+            currentFileType = e.target.value;
+            updateEditorMode(currentFileType);
+        });
+
+        function updateEditorMode(fileType) {
+            const modeMap = {
+                'html': 'xml',
+                'md': 'markdown',
+                'txt': 'text',
+                'rtf': 'text'
+            };
+            codeMirror.setOption('mode', modeMap[fileType] || 'text');
+        }
+
+        // Modify save function to handle different file types
+        async function saveFile(fileHandle) {
+            try {
+                showStatus('Saving file...');
+                const writable = await fileHandle.createWritable();
+                const content = hasCodeMirror ?
+                    codeMirror.getValue() :
+                    document.getElementById('basicEditor').value;
+
+                await writable.write(content);
+                await writable.close();
+                showStatus('File saved successfully!');
+            } catch (error) {
+                console.error('Error saving file:', error);
+                showStatus('Error saving file: ' + error.message);
+                alert('Error saving file: ' + error.message);
+            }
+        }
+
+        // Modify file creation to handle file types
+        async function createFile(name) {
+            try {
+                if (!name.includes('.')) {
+                    const extension = document.getElementById('fileTypeSelect').value;
+                    name = `${name}.${extension}`;
+                }
+
+                showStatus(`Creating file: ${name}`);
+                const newFileHandle = await state.currentDirectory.getFileHandle(name, {
+                    create: true
+                });
+                const writable = await newFileHandle.createWritable();
+
+                // Add default content based on file type
+                let defaultContent = '';
+                const extension = name.split('.').pop().toLowerCase();
+
+                if (extension === 'html') {
+                    defaultContent = formatAsHTML('');
+                } else if (extension === 'rtf') {
+                    defaultContent = formatAsRTF('');
+                }
+
+                await writable.write(defaultContent);
+                await writable.close();
+                await renderDirectoryContents(state.currentDirectory);
+                showStatus(`File "${name}" created successfully!`);
+            } catch (error) {
+                console.error('Error creating file:', error);
+                showStatus('Error creating file: ' + error.message);
+                alert('Error creating file: ' + error.message);
+            }
+        }
+
+        // Modify file opening to detect file type
+        async function readFile(fileHandle) {
+            try {
+                const file = await fileHandle.getFile();
+                const contents = await file.text();
+
+                // Set mode based on file extension
+                const extension = file.name.split('.').pop().toLowerCase();
+                const modeMap = {
+                    'html': 'xml',
+                    'md': 'markdown',
+                    'txt': 'text',
+                    'rtf': 'text'
+                };
+
+                if (hasCodeMirror && codeMirror) {
+                    // Ensure CodeMirror is properly initialized
+                    if (!codeMirror.getValue) {
+                        const editorContainer = document.getElementById('editor');
+                        codeMirror = CodeMirror(editorContainer, {
+                            mode: modeMap[extension] || 'text',
+                            theme: 'monokai',
+                            lineNumbers: true,
+                            lineWrapping: true,
+                            autofocus: true,
+                            indentUnit: 4,
+                            tabSize: 4,
+                            viewportMargin: Infinity
+                        });
+                    }
+
+                    // Set the content and mode
+                    codeMirror.setOption('mode', modeMap[extension] || 'text');
+                    codeMirror.setValue(contents);
+
+                    // Force a refresh to ensure proper rendering
+                    setTimeout(() => {
+                        codeMirror.refresh();
+                    }, 10);
+                } else {
+                    document.getElementById('basicEditor').value = contents;
+                }
+
+                return contents;
+            } catch (error) {
+                console.error('Error reading file:', error);
+                showStatus('Error reading file: ' + error.message);
+                throw error;
+            }
+        }
+
+        function openCreateDialog(type) {
+            dialogTitle.textContent = type === 'folder' ? 'Create New Folder' : 'Create New File';
+            confirmDialogBtn.dataset.type = type;
+            itemNameInput.value = '';
+            createDialog.classList.remove('hidden');
+            itemNameInput.focus();
+
+            // Set up enter key to confirm
+            itemNameInput.onkeydown = function(e) {
+                if (e.key === 'Enter') {
+                    confirmDialogBtn.click();
+                }
+            };
+        }
+
+        function updateBreadcrumb() {
+            breadcrumb.innerHTML = '';
+
+            state.directoryStack.forEach((dir, index) => {
+                const span = document.createElement('span');
+                span.textContent = dir.name;
+
+                span.addEventListener('click', async() => {
+                    if (index < state.directoryStack.length - 1) {
+                        state.currentDirectory = dir.handle;
+                        state.directoryStack = state.directoryStack.slice(0, index + 1);
+                        await renderDirectoryContents(dir.handle);
+                        updateBreadcrumb();
+                    }
+                });
+
+                breadcrumb.appendChild(span);
+
+                if (index < state.directoryStack.length - 1) {
+                    const separator = document.createElement('span');
+                    separator.textContent = ' > ';
+                    breadcrumb.appendChild(separator);
+                }
+            });
+        }
+
+        // Handle keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+S to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's' && state.activeFile) {
+                e.preventDefault();
+                saveBtn.click();
+            }
+        });
+
+        // Log that script has loaded
+        console.log("Script loaded successfully");
+        showStatus("App loaded successfully. Click 'Load Project' to begin.");
+
+        // Add instructions modal functions
+        function showInstructions() {
+            document.getElementById('instructionsModal').style.display = 'block';
+            // Prevent scrolling of the main content when modal is open
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideInstructions() {
+            document.getElementById('instructionsModal').style.display = 'none';
+            // Restore scrolling
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close instructions modal when clicking outside
+        document.getElementById('instructionsModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideInstructions();
+            }
+        });
+
+        // Show instructions automatically on first visit
+        if (!localStorage.getItem('hasVisited')) {
+            showInstructions();
+            localStorage.setItem('hasVisited', 'true');
+        }
+
+        // Add offline functionality detection
+        let isOffline = false;
+        let hasMarked = typeof marked !== 'undefined';
+
+        // Check online status and update UI
+        function updateOnlineStatus() {
+            isOffline = !navigator.onLine;
+            const indicator = document.getElementById('offlineIndicator');
+            const status = document.getElementById('connectionStatus');
+
+            indicator.style.display = 'block';
+            if (isOffline) {
+                indicator.classList.add('offline');
+                status.textContent = '⚡ Working Offline';
+            } else {
+                indicator.classList.remove('offline');
+                status.textContent = '✓ Ready for offline use';
+            }
+
+            // Show offline notice if offline
+            document.getElementById('offlineNotice').classList.toggle('show', isOffline);
+        }
+
+        // Listen for online/offline events
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
+
+        // Add function to save project permission
+        async function saveProjectPermission(handle) {
+            try {
+                // Save the permission handle
+                state.lastProjectPermission = handle;
+
+                // Store the permission in localStorage
+                if (handle) {
+                    const serializedHandle = await serializePermission(handle);
+                    localStorage.setItem('lastProjectHandle', serializedHandle);
+                }
+            } catch (error) {
+                console.error('Error saving project permission:', error);
+            }
+        }
+
+        // Add function to serialize directory handle
+        async function serializePermission(handle) {
+            const serialized = {
+                name: handle.name,
+                kind: handle.kind,
+                // Store permission state
+                permission: {
+                    mode: 'readwrite',
+                    // Request durable permission
+                    granted: await handle.queryPermission({
+                        mode: 'readwrite'
+                    }) === 'granted'
+                }
+            };
+            return JSON.stringify(serialized);
+        }
+    </script>
+</body>
+
+</html>
